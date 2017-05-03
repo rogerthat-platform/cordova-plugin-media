@@ -31,6 +31,8 @@ import android.media.AudioManager.OnAudioFocusChangeListener;
 import android.net.Uri;
 import android.os.Build;
 
+import com.mobicage.rogerthat.cordova.CordovaActionScreenActivity;
+
 import java.security.Permission;
 import java.util.ArrayList;
 
@@ -72,6 +74,8 @@ public class AudioHandler extends CordovaPlugin {
     private String recordId;
     private String fileUriStr;
 
+    private CordovaActionScreenActivity mActivity = null;
+
     /**
      * Constructor.
      */
@@ -102,6 +106,10 @@ public class AudioHandler extends CordovaPlugin {
      * @return 				A PluginResult object with a status and message.
      */
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+        if (mActivity == null) {
+            mActivity = (CordovaActionScreenActivity) cordova.getActivity();
+        }
+
         CordovaResourceApi resourceApi = webView.getResourceApi();
         PluginResult.Status status = PluginResult.Status.OK;
         String result = "";
@@ -129,11 +137,15 @@ public class AudioHandler extends CordovaPlugin {
         else if (action.equals("startPlayingAudio")) {
             String target = args.getString(1);
             String fileUriStr;
+            Uri targetUri = Uri.parse(target);
             try {
-                Uri targetUri = resourceApi.remapUri(Uri.parse(target));
-                fileUriStr = targetUri.toString();
+              Uri cleanTargetUri = resourceApi.remapUri(targetUri);
+              fileUriStr = cleanTargetUri.toString();
             } catch (IllegalArgumentException e) {
                 fileUriStr = target;
+            }
+            if (targetUri.getScheme() == null) {
+                fileUriStr = "file://" + mActivity.getBrandingResult().dir.getAbsolutePath() + "/" + target;
             }
             this.startPlayingAudio(args.getString(0), FileHelper.stripFileProtocol(fileUriStr));
         }
