@@ -19,6 +19,7 @@
 #import "CDVFile.h"
 #import <AVFoundation/AVFoundation.h>
 #include <math.h>
+#import "MCTCordovaScreenBrandingVC.h"
 
 #define DOCUMENTS_SCHEME_PREFIX @"documents://"
 #define HTTP_SCHEME_PREFIX @"http://"
@@ -28,6 +29,11 @@
 @implementation CDVSound
 
 @synthesize soundCache, avSession, currMediaId, statusCallbackId;
+
+- (MCTCordovaScreenBrandingVC *)vc
+{
+    return ((MCTCordovaScreenBrandingVC *)self.viewController);
+}
 
 // Maps a url for a resource path for recording
 - (NSURL*)urlForRecording:(NSString*)resourcePath
@@ -98,22 +104,27 @@
             resourceURL = [NSURL URLWithString:resourcePath];
         }
     } else {
-        // attempt to find file path in www directory or LocalFileSystem.TEMPORARY directory
-        filePath = [self.commandDelegate pathForResource:resourcePath];
-        if (filePath == nil) {
-            // see if this exists in the documents/temp directory from a previous recording
-            NSString* testPath = [NSString stringWithFormat:@"%@/%@", [NSTemporaryDirectory()stringByStandardizingPath], resourcePath];
-            if ([[NSFileManager defaultManager] fileExistsAtPath:testPath]) {
-                // inefficient as existence will be checked again below but only way to determine if file exists from previous recording
-                filePath = testPath;
-                NSLog(@"Will attempt to use file resource from LocalFileSystem.TEMPORARY directory");
-            } else {
-                // attempt to use path provided
-                filePath = resourcePath;
-                NSLog(@"Will attempt to use file resource '%@'", filePath);
-            }
+        filePath = [self.vc.brandingResult.rootDir stringByAppendingPathComponent:resourcePath];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+            NSLog(@"Found resource '%@' in the branding folder.", filePath);
         } else {
-            NSLog(@"Found resource '%@' in the web folder.", filePath);
+            // attempt to find file path in www directory or LocalFileSystem.TEMPORARY directory
+            filePath = [self.commandDelegate pathForResource:resourcePath];
+            if (filePath == nil) {
+                // see if this exists in the documents/temp directory from a previous recording
+                NSString* testPath = [NSString stringWithFormat:@"%@/%@", [NSTemporaryDirectory()stringByStandardizingPath], resourcePath];
+                if ([[NSFileManager defaultManager] fileExistsAtPath:testPath]) {
+                    // inefficient as existence will be checked again below but only way to determine if file exists from previous recording
+                    filePath = testPath;
+                    NSLog(@"Will attempt to use file resource from LocalFileSystem.TEMPORARY directory");
+                } else {
+                    // attempt to use path provided
+                    filePath = resourcePath;
+                    NSLog(@"Will attempt to use file resource '%@'", filePath);
+                }
+            } else {
+                NSLog(@"Found resource '%@' in the web folder.", filePath);
+            }
         }
     }
     // if the resourcePath resolved to a file path, check that file exists
@@ -421,7 +432,7 @@
                 [audioFile.player play];
             } */
             // error creating the session or player
-            [self onStatus:MEDIA_ERROR mediaId:mediaId 
+            [self onStatus:MEDIA_ERROR mediaId:mediaId
               param:[self createMediaErrorWithCode:MEDIA_ERR_NONE_SUPPORTED message:nil]];
         }
     }
@@ -917,7 +928,7 @@
         status[@"msgType"] = @(what);
         //in the error case contains a dict with "code" and "message"
         //otherwise a NSNumber
-        status[@"value"] = param; 
+        status[@"value"] = param;
         status[@"id"] = mediaId;
         NSMutableDictionary* dict=[NSMutableDictionary dictionary];
         dict[@"action"] = @"status";
@@ -931,7 +942,7 @@
             param=[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
         }
         NSString* jsString = [NSString stringWithFormat:@"%@(\"%@\",%d,%@);",
-              @"cordova.require('cordova-plugin-media.Media').onStatus", 
+              @"cordova.require('cordova-plugin-media.Media').onStatus",
               mediaId, (int)what, param];
         [self.commandDelegate evalJs:jsString];
     }
